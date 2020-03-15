@@ -1,12 +1,14 @@
-from django.shortcuts import get_object_or_404, render
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, TrigramSimilarity
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.views.generic import ListView
-from .models import Post
-from .forms import EmailPostForm, CommentForm
 from django.core.mail import send_mail
 from django.db.models import Count
+from django.shortcuts import get_object_or_404, render
+from django.views.generic import ListView
+from .models import Post
+from .forms import EmailPostForm, CommentFormm, SearchForm
 from taggit.models import Tag
- 
+
+
 # class PostListView(ListView):
 #     queryset = Post.published.all()
 #     context_object_name = 'posts'
@@ -83,3 +85,23 @@ def post_share(request, post_id):
     else:
         form = EmailPostForm()
     return render(request, 'blog/post/share.html', {'post': post, 'form': form})
+
+def post_search(request):
+    form = SearchForm()
+    query = None
+    results = []
+    if 'query' in request.GET:
+        form = SearchForm(request.GET)
+        if form.is_valid():
+            query = form.cleaned_data['query']
+            search_vector = SearchVector('title', weight='A') + SearchVector('body', weight='B')
+            search_query = SearchQuery(query)
+            # results = Post.objects.annotate(
+            #     rank=SearchRank(search_vector, search_query)
+            # ).filter(rank__gte=0.3).order_by('-rank')
+            results = Post.objects.annotate(
+                similarity=TrigramSimilarity('title', query),
+            ).filter(similarity__gt=0.3).order_by('-similarity')
+    return render(request, 'blog/post/search.html', {
+        'form': form, 'query': query, 'results': results
+    })
