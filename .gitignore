@@ -6,3 +6,4 @@ venv/
 
 # vscode settings
 .vscode/settings.json
+blog/static/.DS_Store
